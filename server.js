@@ -10,18 +10,17 @@ const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 
 app.post('/webhook/shopify-fulfilled', async (req, res) => {
   try {
-    const order = req.body;
+    const fulfillment = req.body;
 
-    if (order.fulfillment_status !== 'fulfilled') {
-      return res.status(200).send('Not fulfilled yet, skipping.');
-    }
+    console.log('Received fulfillment webhook:', JSON.stringify(fulfillment));
+
+    // "Fulfillment creation" event khud confirm karta hai ki order fulfill ho chuka
+    // isliye yahan extra check ki zaroorat nahi
 
     const hash = (value) =>
       crypto.createHash('sha256').update(value.trim().toLowerCase()).digest('hex');
 
-    const email = order.email ? hash(order.email) : undefined;
-    const phone = order.phone ? hash(order.phone.replace(/\D/g, '')) : undefined;
-
+    // Fulfillment object mein email/phone nahi hota, isliye order_id se kaam chalayenge
     const payload = {
       data: [
         {
@@ -30,13 +29,11 @@ app.post('/webhook/shopify-fulfilled', async (req, res) => {
           action_source: 'website',
           event_source_url: 'https://thequickshop.pk',
           user_data: {
-            em: email ? [email] : undefined,
-            ph: phone ? [phone] : undefined,
+            // Agar fulfillment object mein email/phone available ho to yahan add karein
           },
           custom_data: {
             currency: 'PKR',
-            value: order.total_price,
-            order_id: order.id,
+            order_id: fulfillment.order_id || fulfillment.id,
           },
         },
       ],
@@ -52,7 +49,7 @@ app.post('/webhook/shopify-fulfilled', async (req, res) => {
     );
 
     const result = await response.json();
-    console.log('Meta CAPI response:', result);
+    console.log('Meta CAPI response:', JSON.stringify(result));
 
     res.status(200).send('Event sent to Meta.');
   } catch (error) {
