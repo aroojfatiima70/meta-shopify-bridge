@@ -14,13 +14,18 @@ app.post('/webhook/shopify-fulfilled', async (req, res) => {
 
     console.log('Received fulfillment webhook:', JSON.stringify(fulfillment));
 
-    // "Fulfillment creation" event khud confirm karta hai ki order fulfill ho chuka
-    // isliye yahan extra check ki zaroorat nahi
-
     const hash = (value) =>
       crypto.createHash('sha256').update(value.trim().toLowerCase()).digest('hex');
 
-    // Fulfillment object mein email/phone nahi hota, isliye order_id se kaam chalayenge
+    const email = fulfillment.email ? hash(fulfillment.email) : undefined;
+
+    let phone;
+    if (fulfillment.destination && fulfillment.destination.phone) {
+      // sirf numbers rakhein, +92 ya 0 se start hone wale ko clean karein
+      let cleanPhone = fulfillment.destination.phone.replace(/\D/g, '');
+      phone = hash(cleanPhone);
+    }
+
     const payload = {
       data: [
         {
@@ -29,7 +34,8 @@ app.post('/webhook/shopify-fulfilled', async (req, res) => {
           action_source: 'website',
           event_source_url: 'https://thequickshop.pk',
           user_data: {
-            // Agar fulfillment object mein email/phone available ho to yahan add karein
+            em: email ? [email] : undefined,
+            ph: phone ? [phone] : undefined,
           },
           custom_data: {
             currency: 'PKR',
